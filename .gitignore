@@ -1,0 +1,36 @@
+# Environnements virtuels
+.venv/
+.venv-mlflow/
+.venv-dbt/
+.venv-airflow/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# Variables d'environnement
+.env
+
+# Données et bases locales
+data/
+*.pdf
+*.duckdb
+chroma_db/
+
+# Artefacts dbt
+dbt_project/mon_rag_dbt/target/
+
+# MLflow
+mlflow_data/
+
+# Airflow
+airflow/airflow.db
+airflow/airflow.cfg
+airflow/webserver_config.py
+
+# Divers
+*.log
+.DS_Store
