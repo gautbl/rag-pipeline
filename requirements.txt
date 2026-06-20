@@ -1,0 +1,14 @@
+langchain
+langchain-community
+langchain-chroma
+langchain-huggingface
+sentence-transformers
+chromadb
+pypdf
+fastapi
+uvicorn
+mlflow
+duckdb
+dbt-duckdb
+apache-airflow
+python-dotenv

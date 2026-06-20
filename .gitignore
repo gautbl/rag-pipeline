@@ -34,3 +34,12 @@ airflow/webserver_config.py
 # Divers
 *.log
 .DS_Store
+
+# Chroma
+chroma_store/
+
+# PDFs (données personnelles)
+*.pdf
+data/
+# Dossier de logs
+logs/
