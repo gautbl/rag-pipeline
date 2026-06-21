@@ -2,6 +2,8 @@ version: 2
 
 sources:
   - name: raw
+    database: "{{ env_var('DUCKDB_PATH', 'dev.duckdb') }}"
     schema: main        # schéma par défaut de DuckDB
     tables:
       - name: chunks_raw
+      - name: chunks          # nouvelle table vectorielle
