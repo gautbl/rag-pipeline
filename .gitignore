@@ -43,3 +43,5 @@ chroma_store/
 data/
 # Dossier de logs
 logs/
+
+models/
