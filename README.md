@@ -68,8 +68,78 @@ graph LR
 | dbt + DuckDB | Transformation et nettoyage des chunks | `.venv-dbt` |
 | MLflow | Tracking des expériences et métriques | `.venv-mlflow` |
 | Airflow | Orchestration du pipeline end-to-end | `.venv-airflow` — WSL2 requis |
-| FastAPI | Exposition REST du pipeline | 🚧 À venir |
+| FastAPI + Uvicorn | Exposition REST du pipeline RAG | .venv-api |
 | Docker | Containerisation | 🚧 À venir |
+
+---
+
+## Évaluation — RAGAS
+
+Évaluation automatisée de la qualité du pipeline RAG via [RAGAS](https://docs.ragas.io),
+en mode 100% local (aucune API externe).
+
+| Métrique | LLM requis | Statut | Description |
+|---|---|---|---|
+| `answer_similarity` | ❌ Non | ✅ Actif | Similarité sémantique réponse / ground truth |
+| `context_precision` | ✅ Oui | 🚧 LLM requis | Les chunks récupérés sont-ils pertinents ? |
+| `context_recall` | ✅ Oui | 🚧 LLM requis | Le pipeline retrouve-t-il les bons passages ? |
+| `faithfulness` | ✅ Oui | 🚧 LLM requis | Réponse fidèle aux chunks récupérés ? |
+| `answer_relevancy` | ✅ Oui | 🚧 LLM requis | Réponse pertinente par rapport à la question ? |
+
+**Embeddings :** `paraphrase-multilingual-MiniLM-L12-v2` (HuggingFace local)  
+**LLM juge :** non disponible en environnement isolé — roadmap : intégration via Ollama  
+**Résultats trackés dans MLflow** — expérience `ragas-evaluation`
+
+```powershell
+.\.venv-ragas\Scripts\Activate.ps1
+python scripts/evaluate.py
+```
+
+---
+
+## Perspectives & Roadmap
+
+### Model Context Protocol (MCP)
+
+Le pipeline RAG actuel est conçu pour évoluer vers une architecture **MCP (Model Context Protocol)**.
+
+MCP est un protocole ouvert (Anthropic, 2024) qui standardise la communication
+entre un LLM et ses sources de données ou outils externes. Il définit deux rôles :
+
+| Rôle | Description | Dans ce projet |
+|---|---|---|
+| **MCP Server** | Expose des ressources ou outils interrogeables par un LLM | L'API FastAPI `/query` |
+| **MCP Client** | Le LLM qui consomme les ressources exposées | Agent LangGraph |
+
+**Évolution cible :**
+
+```
+[LLM Agent]
+    │
+    │  MCP Protocol
+    ▼
+[MCP Server — FastAPI]
+    │
+    ├── /query  → DuckDB+VSS (recherche sémantique)
+    ├── /docs   → corpus PDF (accès aux sources)
+    └── /health → monitoring
+```
+
+Cette architecture permet :
+- Un accès **standardisé et sécurisé** aux connaissances du corpus
+- Une **découplabilité** totale entre le LLM et les sources de données
+- Une **extensibilité** vers d'autres knowledge connectors (bases SQL, APIs métier)
+
+**Roadmap technique :**
+
+| Composant | Statut | Description |
+|---|---|---|
+| API FastAPI `/query` | ✅ Livré | Base du MCP Server |
+| Exposition MCP Server | 🚧 À venir | Wrapper MCP sur FastAPI via `mcp` SDK |
+| Agent LangGraph | 🚧 À venir | MCP Client avec mémoire et multi-turn |
+| Évaluation LLM complète | 🚧 À venir | Flan-T5-large local — métriques RAGAS complètes |
+| Conteneurisation Docker | 🚧 À venir | Image unifiée API + modèles |
+| Tests unitaires | 🚧 À venir | Couverture pipeline RAG et endpoints API |
 
 ---
 
@@ -205,7 +275,8 @@ airflow webserver --port 8080
 | MLflow UI | http://localhost:5000 | ✅ Fonctionnel |
 | dbt docs | http://localhost:8081 | ✅ Fonctionnel |
 | Airflow UI | http://localhost:8080 | ⚠️ WSL2 requis |
-| FastAPI | http://localhost:8000 | 🚧 À venir |
+| FastAPI | http://localhost:8000 | ✅ Fonctionnel |
+| FastAPI Swagger | http://localhost:8000/docs | ✅ Fonctionnel |
 
 ---
 
@@ -215,11 +286,11 @@ airflow webserver --port 8080
 
 | Métrique | Valeur |
 |---|---|
-| Documents traités | — |
-| Chunks générés | — |
-| Temps d'ingestion (sec) | — |
-| Temps de requête moyen (ms) | — |
-| Score cosinus moyen (5 requêtes test) | — |
+| Documents traités | 1 |
+| Chunks générés | 10 |
+| Temps d'ingestion (sec) | 0.15 sec |
+| Temps de requête moyen (ms) |  3.15 ms |
+| Score cosinus moyen (5 requêtes test) | 1.0 |
 
 ---
 
@@ -264,7 +335,10 @@ dans un contexte IA.
 | DuckDB+VSS (stockage vectoriel) | ✅ Fonctionnel |
 | MLflow (tracking des expériences) | ✅ Fonctionnel |
 | dbt (transformation des chunks) | ✅ Fonctionnel |
+| Évaluation RAGAS | ✅ Fonctionnel (answer_similarity) — métriques LLM en attente |
 | Airflow (orchestration) | ⚠️ WSL2 requis |
-| API FastAPI | 🚧 À venir |
+| API FastAPI | ✅ Fonctionnel |
+| MCP Server | 🚧 À venir |
+| Agent LangGraph | 🚧 À venir |
 | Tests unitaires | 🚧 À venir |
 | Docker | 🚧 À venir |
