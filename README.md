@@ -95,7 +95,7 @@ en mode 100% local (aucune API externe).
 | `answer_relevancy` | ✅ Oui | 🚧 LLM requis | Réponse pertinente par rapport à la question ? |
 
 **Embeddings :** `paraphrase-multilingual-MiniLM-L12-v2` (HuggingFace local)  
-**LLM juge :** non disponible en environnement isolé — roadmap : intégration via Ollama  
+**LLM juge :** Flan-T5-large local (CPU) — answer_similarity opérationnel (0.41), context_precision et context_recall en attente (timeout CPU). Roadmap : Ollama pour évaluation complète.
 **Résultats trackés dans MLflow** — expérience `ragas-evaluation`
 
 ```powershell
@@ -156,6 +156,13 @@ Cette architecture permet :
 ```
 rag-pipeline/
 │
+├── requirements/
+│   ├── requirements-rag.txt
+│   ├── requirements-mlflow.txt
+│   ├── requirements-dbt.txt
+│   ├── requirements-airflow.txt
+│   ├── requirements-api.txt          # ✅ FastAPI
+│   └── requirements-ragas.txt        # ✅ RAGAS
 ├── dags/
 │   └── rag_pipeline_dag.py           # DAG Airflow : extract → vectorize → log
 │
@@ -188,7 +195,10 @@ rag-pipeline/
 │   └── requirements-airflow.txt      # apache-airflow
 │
 ├── tests/                            # 🚧 À venir
-├── api/                              # 🚧 À venir — FastAPI
+├── api/                              # ✅ API REST FastAPI
+│   ├── __init__.py
+│   ├── main.py                       # Application FastAPI
+│   └── models.py                     # Schémas Pydantic
 ├── constraints-3.11.txt              # Contraintes pip pour Airflow
 ├── docker-compose.yaml               # 🚧 À venir
 ├── .env.example                      # Variables d'environnement (modèle)
@@ -324,7 +334,6 @@ python scripts/evaluate.py
 
 ## Résultats
 
-> À compléter après exécution sur corpus réel (Étape 6 du plan d'action)
 
 | Métrique | Valeur |
 |---|---|
@@ -361,13 +370,6 @@ vectorielle opaque.
 ce qui correspond au contexte métier — documents réglementaires en français,
 spécifications techniques en anglais.
 
-### Venvs isolés
-
-Chaque outil tourne dans un environnement virtuel dédié pour éviter les
-conflits de dépendances, notamment entre Airflow (contraintes strictes sur
-`sqlalchemy`, `protobuf`) et LangChain/MLflow (`pydantic`).
-
-
 ### Venvs isolés — stratégie complète
 
 | Venv | Outils | Raison de l'isolation |
@@ -394,6 +396,13 @@ environnement virtuel dédié (`.venv-api`), découplé du pipeline RAG principa
 Ce choix garantit qu'aucun conflit de dépendances n'affecte la stabilité du
 pipeline de données. Le Swagger auto-généré par FastAPI sert de documentation
 interactive de l'API.
+
+### RAGAS en mode offline
+
+L'évaluation RAGAS utilise `answer_similarity` calculée via embeddings locaux
+et Flan-T5-large pour la génération de réponses. Les métriques
+`context_precision` et `context_recall` nécessitent un LLM plus rapide
+(Ollama roadmap) car Flan-T5 en CPU dépasse le timeout RAGAS.
 
 ---
 
