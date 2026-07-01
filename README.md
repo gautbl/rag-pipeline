@@ -44,9 +44,17 @@ graph LR
         D --> J[Top-K Chunks\n+ Cosine Score]
     end
 
+    subgraph API["🌐 API REST"]
+        J --> API1[FastAPI\nPOST /query\nlocalhost:8000]
+    end
+
+    subgraph Evaluation["🧪 Évaluation"]
+        J --> R[RAGAS\nanswer_similarity]
+        R --> K[MLflow Tracking\nlocalhost:5000]
+    end
+
     subgraph Observabilite["📊 Observabilité"]
-        J --> K[MLflow Tracking\nlocalhost:5000]
-        K --> L[Métriques\nnb_chunks, nb_docs\ningest_duration]
+        K --> L[Métriques\nnb_chunks, nb_docs\ningest_duration\nanswer_similarity]
     end
 
     subgraph Orchestration["⏱ Orchestration"]
@@ -223,6 +231,24 @@ source .venv-airflow/bin/activate
 pip install apache-airflow --constraint constraints-3.11.txt
 ```
 
+### API FastAPI
+
+```powershell
+python -m venv .venv-api
+.\.venv-api\Scripts\Activate.ps1
+pip install -r requirements/requirements-api.txt
+```
+
+### Évaluation RAGAS
+
+```powershell
+# PyTorch CPU (si métriques LLM activées)
+# pip install torch --index-url https://download.pytorch.org/whl/cpu
+python -m venv .venv-ragas
+.\.venv-ragas\Scripts\Activate.ps1
+pip install -r requirements/requirements-ragas.txt
+```
+
 ---
 
 ## Lancer le projet
@@ -264,6 +290,22 @@ source ~/rag-airflow-venv/bin/activate
 export AIRFLOW_HOME=~/airflow
 airflow webserver --port 8080
 # UI → http://localhost:8080
+```
+
+### API FastAPI
+
+```powershell
+.\.venv-api\Scripts\Activate.ps1
+uvicorn api.main:app --reload --port 8000
+# Swagger UI → http://localhost:8000/docs
+```
+
+### Évaluation RAGAS
+
+```powershell
+.\.venv-ragas\Scripts\Activate.ps1
+python scripts/evaluate.py
+# Résultats → MLflow UI http://localhost:5000
 ```
 
 ---
@@ -325,6 +367,18 @@ Chaque outil tourne dans un environnement virtuel dédié pour éviter les
 conflits de dépendances, notamment entre Airflow (contraintes strictes sur
 `sqlalchemy`, `protobuf`) et LangChain/MLflow (`pydantic`).
 
+
+### Venvs isolés — stratégie complète
+
+| Venv | Outils | Raison de l'isolation |
+|---|---|---|
+| `.venv` | LangChain, HuggingFace, DuckDB | Pipeline RAG principal |
+| `.venv-mlflow` | MLflow | Conflits `sqlalchemy` / `protobuf` |
+| `.venv-dbt` | dbt-duckdb | Conflits `pydantic` |
+| `.venv-airflow` | Apache Airflow | Contraintes strictes sur toutes les dépendances |
+| `.venv-ragas` | RAGAS, datasets | Conflits `pydantic` v1/v2 avec LangChain |
+| `.venv-api` | FastAPI, Uvicorn | Isolation de la couche exposition |
+
 ### dbt comme couche de transformation indépendante
 
 Le projet dbt (`dbt_project/`) opère sur une base DuckDB distincte
@@ -332,6 +386,14 @@ Le projet dbt (`dbt_project/`) opère sur une base DuckDB distincte
 RAG principal (`rag.duckdb`) et illustre la capacité à appliquer des
 pratiques data engineering classiques (transformation, tests, documentation)
 dans un contexte IA.
+
+### FastAPI comme couche d'exposition
+
+L'API REST expose le pipeline via deux endpoints (`/health`, `/query`) dans un
+environnement virtuel dédié (`.venv-api`), découplé du pipeline RAG principal.
+Ce choix garantit qu'aucun conflit de dépendances n'affecte la stabilité du
+pipeline de données. Le Swagger auto-généré par FastAPI sert de documentation
+interactive de l'API.
 
 ---
 
@@ -350,3 +412,4 @@ dans un contexte IA.
 | Agent LangGraph | 🚧 À venir |
 | Tests unitaires | 🚧 À venir |
 | Docker | 🚧 À venir |
+
