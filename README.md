@@ -208,34 +208,66 @@ rag-pipeline/
 
 ## Installation
 
+> Les commandes d'activation de venv diffèrent selon l'OS :
+> - **Windows** : `.\.venv\Scripts\Activate.ps1`
+> - **macOS / Linux** : `source .venv/bin/activate`
+
 ### Pipeline RAG — LangChain, HuggingFace, DuckDB+VSS
 
 ```powershell
-python -m venv .venv
+py -3.11 -m venv .venv
 .\.venv\Scripts\Activate.ps1
+pip install -r requirements/requirements-rag.txt
+```
+
+```bash
+# macOS / Linux
+python3.11 -m venv .venv
+source .venv/bin/activate
 pip install -r requirements/requirements-rag.txt
 ```
 
 ### MLflow
 
 ```powershell
-python -m venv .venv-mlflow
+py -3.11 -m venv .venv-mlflow
 .\.venv-mlflow\Scripts\Activate.ps1
+pip install -r requirements/requirements-mlflow.txt
+```
+
+```bash
+# macOS / Linux
+python3.11 -m venv .venv-mlflow
+source .venv-mlflow/bin/activate
 pip install -r requirements/requirements-mlflow.txt
 ```
 
 ### dbt + DuckDB
 
 ```powershell
-python -m venv .venv-dbt
+py -3.11 -m venv .venv-dbt
 .\.venv-dbt\Scripts\Activate.ps1
+pip install -r requirements/requirements-dbt.txt
+```
+
+```bash
+# macOS / Linux
+python3.11 -m venv .venv-dbt
+source .venv-dbt/bin/activate
 pip install -r requirements/requirements-dbt.txt
 ```
 
 ### Airflow (WSL2 requis)
 
+```powershell
+py -3.11 -m venv .venv-airflow
+source .venv-airflow/bin/activate
+pip install apache-airflow --constraint constraints-3.11.txt
+```
+
 ```bash
-python -m venv .venv-airflow
+# macOS / Linux
+python3.11 -m venv .venv-airflow
 source .venv-airflow/bin/activate
 pip install apache-airflow --constraint constraints-3.11.txt
 ```
@@ -243,18 +275,33 @@ pip install apache-airflow --constraint constraints-3.11.txt
 ### API FastAPI
 
 ```powershell
-python -m venv .venv-api
+py -3.11 -m venv .venv-api
 .\.venv-api\Scripts\Activate.ps1
+pip install -r requirements/requirements-api.txt
+```
+
+```bash
+# macOS / Linux
+python3.11 -m venv .venv-api
+source .venv-api/bin/activate
 pip install -r requirements/requirements-api.txt
 ```
 
 ### Évaluation RAGAS
 
 ```powershell
-# PyTorch CPU (si métriques LLM activées)
-# pip install torch --index-url https://download.pytorch.org/whl/cpu
-python -m venv .venv-ragas
+py -3.11 -m venv .venv-ragas
 .\.venv-ragas\Scripts\Activate.ps1
+# PyTorch CPU (si métriques LLM activées)
+pip install torch --index-url https://download.pytorch.org/whl/cpu
+pip install -r requirements/requirements-ragas.txt
+```
+
+```bash
+# macOS / Linux
+python3.11 -m venv .venv-ragas
+source .venv-ragas/bin/activate
+pip install torch
 pip install -r requirements/requirements-ragas.txt
 ```
 
@@ -274,11 +321,28 @@ pip install -r requirements/requirements-ragas.txt
 python scripts/test_pipeline.py
 ```
 
+```bash
+# macOS / Linux
+source .venv/bin/activate
+# Placer les PDFs dans data/pdfs/
+python scripts/test_pipeline.py
+```
+
 ### MLflow
 
 ```powershell
-.\start_mlflow.ps1
+.\.venv-mlflow\Scripts\Activate.ps1
+mlflow ui --backend-store-uri sqlite:///D:/projets/rag-pipeline/mlflow_data/mlflow.db --port 5000
 # UI → http://localhost:5000
+# Arrêt : Ctrl+C
+```
+
+```bash
+# macOS / Linux
+source .venv-mlflow/bin/activate
+mlflow ui --backend-store-uri sqlite:///$(pwd)/mlflow_data/mlflow.db --port 5000
+# UI → http://localhost:5000
+# Arrêt : Ctrl+C
 ```
 
 ### dbt
@@ -291,12 +355,29 @@ dbt docs serve --port 8081
 # UI → http://localhost:8081
 ```
 
+```bash
+# macOS / Linux
+source .venv-dbt/bin/activate
+cd dbt_project/mon_rag_dbt
+dbt run
+dbt docs serve --port 8081
+# UI → http://localhost:8081
+```
+
 ### Airflow
 
-```bash
+```powershell
 # Depuis WSL2 uniquement
 source ~/rag-airflow-venv/bin/activate
 export AIRFLOW_HOME=~/airflow
+airflow webserver --port 8080
+# UI → http://localhost:8080
+```
+
+```bash
+# macOS / Linux
+source .venv-airflow/bin/activate
+export AIRFLOW_HOME=$(pwd)/airflow
 airflow webserver --port 8080
 # UI → http://localhost:8080
 ```
@@ -309,10 +390,25 @@ uvicorn api.main:app --reload --port 8000
 # Swagger UI → http://localhost:8000/docs
 ```
 
+```bash
+# macOS / Linux
+source .venv-api/bin/activate
+uvicorn api.main:app --reload --port 8000
+# Swagger UI → http://localhost:8000/docs
+# Arrêt : Ctrl+C
+```
+
 ### Évaluation RAGAS
 
 ```powershell
 .\.venv-ragas\Scripts\Activate.ps1
+python scripts/evaluate.py
+# Résultats → MLflow UI http://localhost:5000
+```
+
+```bash
+# macOS / Linux
+source .venv-ragas/bin/activate
 python scripts/evaluate.py
 # Résultats → MLflow UI http://localhost:5000
 ```
