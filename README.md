@@ -40,6 +40,7 @@ graph LR
     subgraph Query["🔍 Requête"]
         G[👤 User Query] --> H[Query Embedding\nHuggingFace]
         H --> I[array_cosine_similarity\nSQL DuckDB]
+        H --> D
         I --> D
         D --> J[Top-K Chunks\n+ Cosine Score]
     end
@@ -75,8 +76,9 @@ graph LR
 | DuckDB + extension VSS | Stockage vectoriel + recherche cosinus HNSW | `.venv` |
 | dbt + DuckDB | Transformation et nettoyage des chunks | `.venv-dbt` |
 | MLflow | Tracking des expériences et métriques | `.venv-mlflow` |
+| RAGAS + Flan-T5-large | Évaluation qualité du pipeline RAG | `.venv-ragas` |
 | Airflow | Orchestration du pipeline end-to-end | `.venv-airflow` — WSL2 requis |
-| FastAPI + Uvicorn | Exposition REST du pipeline RAG | .venv-api |
+| FastAPI + Uvicorn | Exposition REST du pipeline RAG | `.venv-api` |
 | Docker | Containerisation | 🚧 À venir |
 
 ---
@@ -88,14 +90,16 @@ en mode 100% local (aucune API externe).
 
 | Métrique | LLM requis | Statut | Description |
 |---|---|---|---|
-| `answer_similarity` | ❌ Non | ✅ Actif | Similarité sémantique réponse / ground truth |
-| `context_precision` | ✅ Oui | 🚧 LLM requis | Les chunks récupérés sont-ils pertinents ? |
-| `context_recall` | ✅ Oui | 🚧 LLM requis | Le pipeline retrouve-t-il les bons passages ? |
-| `faithfulness` | ✅ Oui | 🚧 LLM requis | Réponse fidèle aux chunks récupérés ? |
-| `answer_relevancy` | ✅ Oui | 🚧 LLM requis | Réponse pertinente par rapport à la question ? |
+| `answer_similarity` | ✅ Oui | ✅ Actif (0.41) | Similarité sémantique réponse générée / ground truth |
+| `context_precision` | ✅ Oui | ⚠️ Timeout CPU | Les chunks récupérés sont-ils pertinents ? |
+| `context_recall` | ✅ Oui | ⚠️ Timeout CPU | Le pipeline retrouve-t-il les bons passages ? |
+| `faithfulness` | ✅ Oui | 🚧 À venir | Réponse fidèle aux chunks récupérés ? |
+| `answer_relevancy` | ✅ Oui | 🚧 À venir | Réponse pertinente par rapport à la question ? |
 
-**Embeddings :** `paraphrase-multilingual-MiniLM-L12-v2` (HuggingFace local)  
-**LLM juge :** Flan-T5-large local (CPU) — answer_similarity opérationnel (0.41), context_precision et context_recall en attente (timeout CPU). Roadmap : Ollama pour évaluation complète.
+**Embeddings :** `paraphrase-multilingual-MiniLM-L12-v2` (HuggingFace local)
+**LLM juge :** `google/flan-t5-large` (local, CPU) — `answer_similarity` opérationnel (score moyen : 0.41).
+`context_precision` et `context_recall` en attente — Flan-T5 trop lent en CPU (TimeoutError).
+Roadmap : remplacement par Ollama (Mistral ou Llama3) pour évaluation complète.
 **Résultats trackés dans MLflow** — expérience `ragas-evaluation`
 
 ```powershell
@@ -145,7 +149,7 @@ Cette architecture permet :
 | API FastAPI `/query` | ✅ Livré | Base du MCP Server |
 | Exposition MCP Server | 🚧 À venir | Wrapper MCP sur FastAPI via `mcp` SDK |
 | Agent LangGraph | 🚧 À venir | MCP Client avec mémoire et multi-turn |
-| Évaluation LLM complète | 🚧 À venir | Flan-T5-large local — métriques RAGAS complètes |
+| Évaluation LLM complète | ⚠️ Partiel | Flan-T5 actif (answer_similarity) — Ollama requis pour métriques complètes |
 | Conteneurisation Docker | 🚧 À venir | Image unifiée API + modèles |
 | Tests unitaires | 🚧 À venir | Couverture pipeline RAG et endpoints API |
 
@@ -156,13 +160,6 @@ Cette architecture permet :
 ```
 rag-pipeline/
 │
-├── requirements/
-│   ├── requirements-rag.txt
-│   ├── requirements-mlflow.txt
-│   ├── requirements-dbt.txt
-│   ├── requirements-airflow.txt
-│   ├── requirements-api.txt          # ✅ FastAPI
-│   └── requirements-ragas.txt        # ✅ RAGAS
 ├── dags/
 │   └── rag_pipeline_dag.py           # DAG Airflow : extract → vectorize → log
 │
@@ -189,10 +186,12 @@ rag-pipeline/
 │   └── rag.duckdb                    # Base vectorielle DuckDB+VSS
 │
 ├── requirements/
-│   ├── requirements-rag.txt          # LangChain, HuggingFace, DuckDB, numpy
-│   ├── requirements-mlflow.txt       # MLflow
-│   ├── requirements-dbt.txt          # dbt-duckdb, duckdb
-│   └── requirements-airflow.txt      # apache-airflow
+│   ├── requirements-rag.txt
+│   ├── requirements-mlflow.txt
+│   ├── requirements-dbt.txt
+│   ├── requirements-airflow.txt
+│   ├── requirements-api.txt          # ✅ FastAPI
+│   └── requirements-ragas.txt        # ✅ RAGAS
 │
 ├── tests/                            # 🚧 À venir
 ├── api/                              # ✅ API REST FastAPI
