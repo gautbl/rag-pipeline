@@ -42,6 +42,7 @@
 import sys
 import io
 import os
+import time
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8")
 sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding="utf-8")
 
@@ -54,13 +55,16 @@ from scripts.ingest import split_documents
 from scripts.embed import embed_and_store
 from scripts.query import search
 
-PDF_PATH = "./data/pdfs/Resume_Gautier_Blondel_04_2026.pdf"
+PDF_PATH = "./data/pdfs/"
 
 # --- 1. Ingest ---
 print("\n=== 1. INGEST ===")
+start = time.time()
 chunks = split_documents(PDF_PATH)
+end = time.time()
 assert len(chunks) > 0, "Aucun chunk généré"
 print(f"{len(chunks)} chunks générés")
+print(f"Temps d'ingestion : {end - start:.2f} sec")
 print(f"   Exemple : {chunks[0].page_content[:100]}...")
 
 # --- 2. Embed & Store ---
