@@ -1,5 +1,8 @@
 """
 evaluate.py — Évaluation RAGAS du pipeline RAG
+Métriques actives (offline) : context_precision, context_recall, answer_similarity
+Métriques commentées (LLM requis) : faithfulness, answer_relevancy
+TODO: Décommenter les sections [FLAN-T5] après téléchargement de google/flan-t5-large
 """
 
 import os
@@ -8,19 +11,21 @@ import pandas as pd
 import duckdb
 from datasets import Dataset
 from ragas import evaluate
-from ragas.run_config import RunConfig
 from ragas.metrics import (
     context_precision,
     context_recall,
     answer_similarity,
-    faithfulness,
-    answer_relevancy,
+    # [FLAN-T5] Décommenter quand le modèle est disponible :
+    # faithfulness,
+    # answer_relevancy,
 )
 from ragas.embeddings import LangchainEmbeddingsWrapper
-from ragas.llms import LangchainLLMWrapper
+# [FLAN-T5] Décommenter quand le modèle est disponible :
+# from ragas.llms import LangchainLLMWrapper
 from langchain_community.embeddings import HuggingFaceEmbeddings
-from langchain_community.llms import HuggingFacePipeline
-from transformers import pipeline as hf_pipeline
+# [FLAN-T5] Décommenter quand le modèle est disponible :
+# from langchain_community.llms import HuggingFacePipeline
+# from transformers import pipeline as hf_pipeline
 
 from ragas.llms import BaseRagasLLM
 from langchain_core.language_models import BaseLanguageModel
@@ -36,7 +41,8 @@ TOP_K        = 3
 MLFLOW_URI   = "http://localhost:5000"
 EXPERIMENT   = "ragas-evaluation"
 
-LLM_MODEL_PATH = "c:/flan-t5-large" #"./models/flan-t5-large"
+# [FLAN-T5] Décommenter et renseigner le chemin local après téléchargement :
+# LLM_MODEL_PATH = "./models/flan-t5-large/models--google--flan-t5-large/snapshots/<hash>/"
 
 # ── Jeu de données d'évaluation ──────────────────────────────────
 # Format RAGAS : question / ground_truth / answer / contexts
@@ -80,16 +86,17 @@ def load_embeddings():
         encode_kwargs={"normalize_embeddings": True},
     )
 
-def load_llm():
-    """Charge Flan-T5-large en local via HuggingFace Pipeline."""
-    pipe = hf_pipeline(
-        "text2text-generation",
-        model=LLM_MODEL_PATH,
-        tokenizer=LLM_MODEL_PATH,
-        max_new_tokens=256,
-        device=-1,  # CPU
-    )
-    return HuggingFacePipeline(pipeline=pipe)
+# [FLAN-T5] Décommenter cette fonction après téléchargement du modèle :
+# def load_llm():
+#     """Charge Flan-T5-large en local via HuggingFace Pipeline."""
+#     pipe = hf_pipeline(
+#         "text2text-generation",
+#         model=LLM_MODEL_PATH,
+#         tokenizer=LLM_MODEL_PATH,
+#         max_new_tokens=256,
+#         device=-1,  # CPU
+#     )
+#     return HuggingFacePipeline(pipeline=pipe)
 
 def retrieve_contexts(question: str, embedding_model, top_k: int = TOP_K) -> list[str]:
     """
@@ -116,28 +123,34 @@ def retrieve_contexts(question: str, embedding_model, top_k: int = TOP_K) -> lis
 
     return [row[0] for row in rows]
 
-def generate_answer(question: str, contexts: list[str], llm) -> str:
+def generate_answer(question: str, contexts: list[str]) -> str:
     """
     Retourne l'answer du dataset d'évaluation en mode offline.
+    [FLAN-T5] Remplacer cette fonction par une vraie génération LLM :
+    def generate_answer(question, contexts, llm):
+        context_str = "\\n\\n".join(contexts)
+        prompt = (
+            f"Answer the following question based only on the context below.\\n\\n"
+            f"Context:\\n{context_str}\\n\\n"
+            f"Question: {question}\\n\\nAnswer:"
+        )
+        return llm.invoke(prompt)
     """
-    # Tronquer chaque contexte à 200 caractères pour rester sous la limite de 512 tokens
-    truncated = [c[:200] for c in contexts]
-    context_str = "\\n\\n".join(truncated)
-    prompt = (
-        f"Answer the following question based only on the context below.\\n\\n"
-        f"Context:\\n{context_str}\\n\\n"
-        f"Question: {question}\\n\\nAnswer:"
-    )
-    return llm.invoke(prompt)
+    # Retrouve l'answer pré-définie dans EVAL_DATASET pour la question donnée
+    for item in EVAL_DATASET:
+        if item["question"] == question:
+            return item["answer"]
+    return ""
 
 # ── Pipeline principal ───────────────────────────────────────────
 
-def build_ragas_dataset(embedding_model, llm) -> Dataset:
+def build_ragas_dataset(embedding_model) -> Dataset:
     """Construit le dataset RAGAS avec contexts récupérés depuis DuckDB."""
     records = []
     for item in EVAL_DATASET:
         contexts = retrieve_contexts(item["question"], embedding_model)
-        answer = generate_answer(item["question"], contexts, llm)
+        # [FLAN-T5] Remplacer par : answer = generate_answer(item["question"], contexts, llm)
+        answer   = generate_answer(item["question"], contexts)
         records.append({
             "question":     item["question"],
             "ground_truth": item["ground_truth"],
@@ -165,28 +178,36 @@ def run_evaluation():
     embedding_model       = load_embeddings()
     ragas_embeddings = LangchainEmbeddingsWrapper(embedding_model)
 
-    print("⏳ Chargement du LLM juge (Flan-T5-large)...")
-    llm      = load_llm()
-    ragas_llm = LangchainLLMWrapper(llm)
+    # [FLAN-T5] Décommenter après téléchargement :
+    # print("⏳ Chargement du LLM juge (Flan-T5-large)...")
+    # llm      = load_llm()
+    # ragas_llm = LangchainLLMWrapper(llm)
 
     print("⏳ Construction du dataset d'évaluation...")
-    dataset = build_ragas_dataset(embedding_model, llm)
+    # [FLAN-T5] Remplacer par : dataset = build_ragas_dataset(embedding_model, llm)
+    dataset = build_ragas_dataset(embedding_model)
 
     # Métriques actives — ne nécessitent pas de LLM juge
-    metrics = [context_precision, context_recall, answer_similarity, faithfulness, answer_relevancy]
+    metrics = [answer_similarity]
+
+    # [FLAN-T5] Décommenter pour activer les métriques LLM :
+    # metrics = [context_precision, context_recall, answer_similarity, faithfulness, answer_relevancy]
     dummy_llm = DummyLLM()
     # Injection des embeddings locaux dans chaque métrique
     for m in metrics:
         m.embeddings = ragas_embeddings
-        m.llm        = ragas_llm  # ← bloque l'appel OpenAI
+        # [FLAN-T5] Décommenter pour les métriques LLM :
+        m.llm        = dummy_llm  # ← bloque l'appel OpenAI
+        # [FLAN-T5] Remplacer dummy_llm par ragas_llm quand disponible
 
-    run_config = RunConfig(timeout=120, max_retries=2)
     print("⏳ Calcul des métriques RAGAS...")
-    results = evaluate(dataset=dataset, metrics=metrics,run_config=run_config)
+    results = evaluate(dataset=dataset, metrics=metrics)
     df      = results.to_pandas()
 
     print("\n📊 Résultats RAGAS :")
-    print(df[["question", "context_precision", "context_recall", "answer_similarity"]].to_string())
+    print(df[["question", "answer_similarity"]].to_string())
+    # [FLAN-T5] Décommenter pour activer les métriques LLM :
+    # print(df[["question", "context_precision", "context_recall", "answer_similarity"]].to_string())
 
     # ── Logging MLflow ───────────────────────────────────────────
     mlflow.set_tracking_uri(MLFLOW_URI)
@@ -195,17 +216,20 @@ def run_evaluation():
     with mlflow.start_run(run_name="ragas-eval"):
 
         # Métriques agrégées
-        mlflow.log_metric("context_precision_mean", float(df["context_precision"].mean()))
-        mlflow.log_metric("context_recall_mean",    float(df["context_recall"].mean()))
+        # mlflow.log_metric("context_precision_mean", float(df["context_precision"].mean()))
+        # mlflow.log_metric("context_recall_mean",    float(df["context_recall"].mean()))
         mlflow.log_metric("answer_similarity_mean", float(df["answer_similarity"].mean()))
         mlflow.log_metric("nb_questions",           len(df))
-        mlflow.log_metric("faithfulness_mean",     float(df["faithfulness"].mean()))
-        mlflow.log_metric("answer_relevancy_mean", float(df["answer_relevancy"].mean()))
+        # [FLAN-T5] Décommenter après activation des métriques LLM :
+        # mlflow.log_metric("faithfulness_mean",     float(df["faithfulness"].mean()))
+        # mlflow.log_metric("answer_relevancy_mean", float(df["answer_relevancy"].mean()))
 
         # Paramètres de configuration
         mlflow.log_param("embedding_model", MODEL_PATH)
         mlflow.log_param("top_k",           TOP_K)
-        mlflow.log_param("llm_judge",     LLM_MODEL_PATH)
+        mlflow.log_param("llm_judge",       "none — offline mode")
+        # [FLAN-T5] Remplacer llm_judge par :
+        # mlflow.log_param("llm_judge",     LLM_MODEL_PATH)
         mlflow.log_param("corpus",          "CVs Gautier Blondel")
 
         # Artefacts

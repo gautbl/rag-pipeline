@@ -286,11 +286,19 @@ airflow webserver --port 8080
 
 | Métrique | Valeur |
 |---|---|
-| Documents traités | 1 |
+| Documents traités | 2 |
 | Chunks générés | 10 |
 | Temps d'ingestion (sec) | 0.15 sec |
 | Temps de requête moyen (ms) |  3.15 ms |
-| Score cosinus moyen (5 requêtes test) | 1.0 |
+| `answer_similarity` moyen — offline (5 requêtes) | 1.0 |
+| `answer_similarity` moyen — Flan-T5 CPU (5 requêtes) | 0.41 |
+| `context_precision` | NaN |
+| `context_recall` | NaN |
+
+> **Note :** `context_precision` et `context_recall` nécessitent un LLM
+> capable de génération JSON structurée. Flan-T5-large en inférence CPU
+> est trop lent pour ces métriques (TimeoutError).
+> Roadmap : remplacement par Ollama (Mistral ou Llama3) pour une évaluation complète.
 
 ---
 

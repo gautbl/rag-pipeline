@@ -3,6 +3,9 @@
 .venv-mlflow/
 .venv-dbt/
 .venv-airflow/
+.venv-api/
+.venv-ragas/
+
 
 # Python
 __pycache__/
@@ -25,6 +28,8 @@ dbt_project/mon_rag_dbt/target/
 
 # MLflow
 mlflow_data/
+mlartifacts/
+
 
 # Airflow
 airflow/airflow.db
