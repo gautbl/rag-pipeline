@@ -63,6 +63,13 @@ graph LR
         M -->|vectorize_and_store| C
         M -->|log_to_mlflow| K
     end
+
+    subgraph Tests["✅ Tests unitaires"]
+        T1[test_chunking.py\n4 tests] -.->|valide| B
+        T2[test_embedding.py\n4 tests] -.->|valide| C
+        T3[test_similarity.py\n5 tests] -.->|valide| D
+        T4[test_api.py\n20 tests] -.->|valide| API1
+    end
 ```
 
 ---
@@ -109,7 +116,22 @@ python scripts/evaluate.py
 
 ---
 
-## Perspectives & Roadmap
+## 📋 Roadmap
+
+- [x] Pipeline RAG fonctionnel (LangChain + DuckDB)
+- [x] Évaluation RAGAS (answer_similarity)
+- [x] API FastAPI (`/health`, `/query`)
+- [x] Suite de tests unitaires complète (33 tests)
+- [ ] Containerisation Docker
+- [ ] Documentation OpenAPI enrichie
+- [ ] Sécurisation (clé API, rate limiting)
+- [ ] Logging structuré + métriques Prometheus
+- [ ] Pipeline CI/CD
+- [ ] Intégration MCP (Model Context Protocol)
+
+---
+
+## Perspectives MCP
 
 ### Model Context Protocol (MCP)
 
@@ -305,6 +327,23 @@ pip install torch
 pip install -r requirements/requirements-ragas.txt
 ```
 
+### Tests unitaires
+
+```powershell
+py -3.11 -m venv .venv
+.venv\Scripts\activate
+pip install -r requirements.txt
+pytest tests/ -v
+```
+
+```bash
+# macOS / Linux
+python3.11 -m  venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+pytest tests/ -v
+```
+
 ---
 
 ## Lancer le projet
@@ -427,6 +466,37 @@ python scripts/evaluate.py
 
 ---
 
+## 🧪 Tests
+
+### Lancer les tests
+
+```bash
+pytest tests/ -v
+
+La suite de tests couvre **33 tests unitaires** répartis en 4 modules.
+
+### Couverture des tests
+| Fichier | Tests | Couverture |
+|---|---|---|
+| test_chunking.py | 4 | Découpage PDF, taille des chunks, métadonnées |
+| test_embedding.py | 4 | Table DuckDB, dimensions, contenu des vecteurs |
+| test_similarity.py | 5 | Retrieval, tri des scores, cohérence sémantique |
+| test_api.py | 20 | /health, /query, validation, edge cases |
+|---|---|---|
+| Total | 33 | Pipeline complet RAG → API
+
+### Résultat attendu
+collected 33 items
+
+tests/test_chunking.py ....                          [ 12%]
+tests/test_embedding.py ....                         [ 24%]
+tests/test_similarity.py .....                       [ 39%]
+tests/test_api.py ....................                [100%]
+
+====================== 33 passed in X.XXs ======================
+
+---
+
 ## Résultats
 
 
@@ -514,6 +584,6 @@ et Flan-T5-large pour la génération de réponses. Les métriques
 | API FastAPI | ✅ Fonctionnel |
 | MCP Server | 🚧 À venir |
 | Agent LangGraph | 🚧 À venir |
-| Tests unitaires | 🚧 À venir |
+| Tests unitaires | ✅ Fonctionnel |
 | Docker | 🚧 À venir |
 
