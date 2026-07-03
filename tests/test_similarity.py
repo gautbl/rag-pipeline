@@ -11,13 +11,16 @@ from scripts.query import search
 
 load_dotenv()
 
-PDF_PATH = "tests/fixtures/sample.pdf"
-DB_PATH  = "./data/test_rag.duckdb"
+PDF_PATH = "tests/fixtures"
+DB_PATH  = "./data/test_rag_similarity.duckdb"
 
 @pytest.fixture(scope="module", autouse=True)
 def setup_pipeline():
     """Fixture : prépare la base de test avant les tests de similarité."""
     os.environ["DUCKDB_PATH"] = DB_PATH
+    # Nettoyage préventif
+    if os.path.exists(DB_PATH):
+        os.remove(DB_PATH)
     chunks = split_documents(PDF_PATH)
     embed_and_store(chunks)
     yield

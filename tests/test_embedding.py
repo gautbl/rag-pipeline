@@ -16,7 +16,7 @@ from scripts.embed import embed_and_store
 
 load_dotenv()
 
-PDF_PATH = "tests/fixtures/sample.pdf"
+PDF_PATH = "tests/fixtures"
 
 @pytest.fixture(scope="module", autouse=True)
 def embedded_chunks():
@@ -38,7 +38,7 @@ def embedded_chunks():
 def test_table_exists(embedded_chunks):
     """La table chunks doit exister dans DuckDB."""
     con = duckdb.connect(DB_PATH, read_only=True)
-    tables = [t for t in con.execute("SHOW TABLES").fetchall()[0]]
+    tables = [row[0] for row in con.execute("SHOW TABLES").fetchall()]
     con.close()
     assert "chunks" in tables
 
