@@ -86,7 +86,7 @@ graph LR
 | RAGAS + Flan-T5-large | Évaluation qualité du pipeline RAG | `.venv-ragas` |
 | Airflow | Orchestration du pipeline end-to-end | `.venv-airflow` — WSL2 requis |
 | FastAPI + Uvicorn | Exposition REST du pipeline RAG | `.venv-api` |
-| Docker | Containerisation | 🚧 À venir |
+| Docker | Containerisation | ✅ API containerisée (image dédiée, volume DuckDB) |
 
 ---
 
@@ -122,8 +122,8 @@ python scripts/evaluate.py
 - [x] Évaluation RAGAS (answer_similarity)
 - [x] API FastAPI (`/health`, `/query`)
 - [x] Suite de tests unitaires complète (33 tests)
-- [ ] Containerisation Docker
-- [ ] Documentation OpenAPI enrichie
+- [x] Containerisation Docker
+- [x] Documentation OpenAPI enrichie
 - [ ] Sécurisation (clé API, rate limiting)
 - [ ] Logging structuré + métriques Prometheus
 - [ ] Pipeline CI/CD
@@ -224,6 +224,7 @@ rag-pipeline/
 ├── docker-compose.yaml               # 🚧 À venir
 ├── .env.example                      # Variables d'environnement (modèle)
 └── .gitignore
+├── docker-compose.yaml               # ✅ Fonctionnel
 ```
 
 ---
@@ -463,6 +464,7 @@ python scripts/evaluate.py
 | Airflow UI | http://localhost:8080 | ⚠️ WSL2 requis |
 | FastAPI | http://localhost:8000 | ✅ Fonctionnel |
 | FastAPI Swagger | http://localhost:8000/docs | ✅ Fonctionnel |
+| FastAPI (Docker) | http://localhost:8000 | ✅ Fonctionnel (conteneur) |
 
 ---
 
@@ -539,7 +541,7 @@ spécifications techniques en anglais.
 
 | Venv | Outils | Raison de l'isolation |
 |---|---|---|
-| `.venv` | LangChain, HuggingFace, DuckDB | Pipeline RAG principal |
+| `.venv` | LangChain, HuggingFace, DuckDB | Pipeline RAG principal — requirements scopés strictement à l'ingestion/embedding/query, sans dépendances Airflow/dbt/MLflow |
 | `.venv-mlflow` | MLflow | Conflits `sqlalchemy` / `protobuf` |
 | `.venv-dbt` | dbt-duckdb | Conflits `pydantic` |
 | `.venv-airflow` | Apache Airflow | Contraintes strictes sur toutes les dépendances |
@@ -561,6 +563,32 @@ environnement virtuel dédié (`.venv-api`), découplé du pipeline RAG principa
 Ce choix garantit qu'aucun conflit de dépendances n'affecte la stabilité du
 pipeline de données. Le Swagger auto-généré par FastAPI sert de documentation
 interactive de l'API.
+
+### Docker
+
+L'API FastAPI est containerisée indépendamment du reste du pipeline
+(choix cohérent avec la stratégie d'isolation des venvs — voir
+"Choix techniques"). Le modèle d'embeddings est inclus dans l'image
+pour garantir la reproductibilité ; la base vectorielle `rag.duckdb`
+est montée en volume pour rester à jour sans rebuild.
+
+**Build de l'image**
+```bash
+docker build -t rag-api:latest .
+```
+
+**Lancement (avec docker-compose)**
+```bash
+docker-compose up --build
+```
+
+**Test rapide**
+```bash
+curl http://localhost:8000/health
+# {"status":"ok","db_reachable":true,"chunk_count":20}
+```
+
+Swagger UI accessible sur `http://localhost:8000/docs`.
 
 ### RAGAS en mode offline
 
@@ -585,5 +613,5 @@ et Flan-T5-large pour la génération de réponses. Les métriques
 | MCP Server | 🚧 À venir |
 | Agent LangGraph | 🚧 À venir |
 | Tests unitaires | ✅ Fonctionnel |
-| Docker | 🚧 À venir |
+| Docker | ✅ Fonctionnel (API uniquement) |
 
