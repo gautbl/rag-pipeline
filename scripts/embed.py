@@ -45,6 +45,7 @@ def embed_and_store(chunks):
     embeddings = HuggingFaceEmbeddings(model_name=MODEL_NAME)
 
     con = duckdb.connect(DB_PATH)
+    con.execute("INSTALL vss;")
     con.execute("LOAD vss;")
     con.execute("SET hnsw_enable_experimental_persistence = true;")
     con.execute("DROP TABLE IF EXISTS chunks")
