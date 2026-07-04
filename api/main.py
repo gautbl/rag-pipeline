@@ -38,11 +38,20 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="RAG Pipeline API",
     description=(
-        "API REST du pipeline de recherche sémantique sur corpus PDF. "
-        "Basée sur DuckDB+VSS et HuggingFace sentence-transformers."
+        "API REST du pipeline de recherche sémantique sur corpus PDF.\n\n"
+        "Basée sur **DuckDB+VSS** (recherche vectorielle) et "
+        "**HuggingFace sentence-transformers** (embeddings multilingues FR/EN).\n\n"
+        "Permet d'interroger un corpus de documents en langage naturel "
+        "et de retourner les passages les plus pertinents avec un score "
+        "de similarité cosinus."
     ),
     version="0.1.0",
     lifespan=lifespan,
+    contact={
+        "name": "Gautier Blondel",
+        "url": "https://github.com/gautbl/rag-pipeline",
+    },
+    license_info={"name": "MIT"},
 )
 
 
@@ -87,7 +96,11 @@ def search_chunks(question: str, top_k: int) -> list[ChunkResult]:
     "/health",
     response_model=HealthResponse,
     summary="Statut de l'API",
+    description="Vérifie que l'API et la base vectorielle DuckDB sont opérationnelles.",
     tags=["Monitoring"],
+    responses={
+        200: {"description": "API opérationnelle (dégradée ou non)."},
+    },
 )
 def health_check() -> HealthResponse:
     """Vérifie que l'API est opérationnelle et que la base DuckDB est accessible."""
@@ -104,7 +117,17 @@ def health_check() -> HealthResponse:
     "/query",
     response_model=QueryResponse,
     summary="Recherche sémantique",
+    description=(
+        "Reçoit une question en langage naturel et retourne les `top_k` "
+        "chunks les plus pertinents du corpus, triés par score de "
+        "similarité cosinus décroissant."
+    ),
     tags=["RAG"],
+    responses={
+        200: {"description": "Résultats retournés avec succès."},
+        404: {"description": "Aucun chunk trouvé — corpus non ingéré."},
+        500: {"description": "Erreur interne (modèle ou base inaccessible)."},
+    },
 )
 def query(request: QueryRequest) -> QueryResponse:
     """
