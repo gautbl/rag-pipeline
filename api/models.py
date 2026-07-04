@@ -33,6 +33,8 @@ class ChunkResult(BaseModel):
         examples=["./data/pdfs/CV Gautier Blondel 06 2026 2.pdf"]
     )
     score:   float = Field(
+        ge=0.0,
+        le=1.0,
         description="Score de similarité cosinus (0 à 1).",
         examples=[0.87]
     )
