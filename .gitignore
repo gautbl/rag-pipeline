@@ -39,6 +39,7 @@ airflow/webserver_config.py
 # Divers
 *.log
 .DS_Store
+.Rhistory
 
 # Chroma
 chroma_store/
