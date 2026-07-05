@@ -9,7 +9,8 @@ import os
 import numpy as np
 import duckdb
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Security, Depends, status
+from fastapi.security.api_key import APIKeyHeader
 from sentence_transformers import SentenceTransformer
 
 from api.models import QueryRequest, QueryResponse, ChunkResult, HealthResponse
@@ -17,6 +18,8 @@ from api.models import QueryRequest, QueryResponse, ChunkResult, HealthResponse
 # ── Configuration ────────────────────────────────────────────────
 DUCKDB_PATH = os.getenv("DUCKDB_PATH", "./data/rag.duckdb")
 MODEL_PATH  = os.getenv("MODEL_PATH",  "./models/paraphrase-multilingual-MiniLM-L12-v2")
+API_KEY = os.getenv("API_KEY")
+api_key_header = APIKeyHeader(name="X-API-Key", auto_error=False)
 
 # ── État global de l'application ─────────────────────────────────
 # Le modèle est chargé une seule fois au démarrage via le lifespan
@@ -63,6 +66,20 @@ def get_embedding(text: str) -> np.ndarray:
     if model is None:
         raise RuntimeError("Modèle d'embeddings non initialisé.")
     return model.encode(text, normalize_embeddings=True).astype(np.float32)
+
+
+def verify_api_key(key: str = Security(api_key_header)) -> None:
+    """Vérifie la présence et la validité de la clé API dans l'en-tête X-API-Key."""
+    if not API_KEY:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Clé API non configurée côté serveur.",
+        )
+    if key != API_KEY:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Clé API invalide ou manquante.",
+        )
 
 
 def search_chunks(question: str, top_k: int) -> list[ChunkResult]:
@@ -125,9 +142,11 @@ def health_check() -> HealthResponse:
     tags=["RAG"],
     responses={
         200: {"description": "Résultats retournés avec succès."},
+        403: {"description": "Clé API invalide ou manquante."},
         404: {"description": "Aucun chunk trouvé — corpus non ingéré."},
         500: {"description": "Erreur interne (modèle ou base inaccessible)."},
     },
+    dependencies=[Depends(verify_api_key)],
 )
 def query(request: QueryRequest) -> QueryResponse:
     """

@@ -124,7 +124,8 @@ python scripts/evaluate.py
 - [x] Suite de tests unitaires complète (33 tests)
 - [x] Containerisation Docker
 - [x] Documentation OpenAPI enrichie
-- [ ] Sécurisation (clé API, rate limiting)
+- [x] Sécurisation — authentification par clé API
+- [ ] Rate limiting
 - [ ] Logging structuré + métriques Prometheus
 - [ ] Pipeline CI/CD
 - [ ] Intégration MCP (Model Context Protocol)
@@ -599,6 +600,39 @@ et Flan-T5-large pour la génération de réponses. Les métriques
 
 ---
 
+## 🔒 Sécurité
+
+L'endpoint `/query` est protégé par une authentification par clé API
+via l'en-tête `X-API-Key`. L'endpoint `/health` reste public, pour
+permettre un healthcheck (Docker, monitoring) sans authentification.
+
+**Configuration (`.env`, non commité)**
+```env
+API_KEY=votre_clé_secrète_ici
+```
+
+**Requête sans clé → 403 Forbidden**
+```bash
+curl -X POST http://localhost:8000/query \
+  -H "Content-Type: application/json" \
+  -d '{"question": "Quelle est sa formation ?", "top_k": 3}'
+```
+
+**Requête avec clé valide → 200 OK**
+```bash
+curl -X POST http://localhost:8000/query \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: votre_clé_secrète_ici" \
+  -d '{"question": "Quelle est sa formation ?", "top_k": 3}'
+```
+
+**Roadmap sécurité**
+- [x] Clé API (`X-API-Key`)
+- [ ] Rate limiting (`slowapi`, 20 requêtes/minute envisagées)
+- [ ] Validation stricte des inputs (déjà partiellement en place via `min_length`, `ge`/`le` dans les schémas Pydantic)
+
+---
+
 ## État d'avancement
 
 | Composant | Statut |
@@ -614,4 +648,5 @@ et Flan-T5-large pour la génération de réponses. Les métriques
 | Agent LangGraph | 🚧 À venir |
 | Tests unitaires | ✅ Fonctionnel |
 | Docker | ✅ Fonctionnel (API uniquement) |
+| Authentification API (clé X-API-Key) | ✅ Fonctionnel |
 
