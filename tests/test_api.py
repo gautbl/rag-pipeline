@@ -36,10 +36,6 @@ from api.main import app
 import api.main as main_module 
 
 
-# On garde une référence pour les tests qui manipulent app_state
-MODEL_HELD = main_module.app_state.get("model")
-
-
 # ════════════════════════════════════════════════════════════════
 # HELPERS
 # ════════════════════════════════════════════════════════════════
@@ -430,8 +426,8 @@ class TestQueryEndpoint:
 # TESTS — Erreurs internes
 # ════════════════════════════════════════════════════════════════
 
-class TestInternalErrors:
-    """Vérifie les erreurs internes (modèle, config)."""
+class TestDegradedStartup:
+    """Vérifie le comportement en cas de démarrage dégradé (modèle manquant, API_KEY non configurée)."""
 
     def test_query_no_model_returns_503(self, client_no_model):
         """Sans modèle chargé, /query doit retourner 503."""
