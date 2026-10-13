@@ -38,5 +38,16 @@ airflow/webserver_config.py
 .Rhistory
 logs/
 
+# Artefacts Chroma (ancienne version)
+chroma_store/
+chroma_db/
+
+# Agent metadata et suivi local
+.pi/
+.scratch/
+
+# Artefacts Windows
+NUL
+
 # Modèles (téléchargement local)
 models/

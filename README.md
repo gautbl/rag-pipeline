@@ -5,6 +5,19 @@ DuckDB+VSS, MLflow, dbt, Airflow.
 
 ---
 
+## Quick start
+
+```powershell
+py -3.11 -m venv .venv
+.\.venv\Scripts\Activate.ps1
+pip install -r requirements/requirements-rag.txt
+python scripts/test_pipeline.py
+```
+
+Ce projet implémente un pipeline RAG complet (ingestion, vectorisation, requêtage) sur des documents PDF. La commande ci-dessus installe les dépendances principales et exécute le pipeline de bout en bout. Comptez ~2 min pour le premier lancement (téléchargement du modèle HuggingFace ~117MB).
+
+---
+
 ## Problème métier
 
 Retrouver une information précise dans un corpus de documents PDF
@@ -118,6 +131,8 @@ python scripts/evaluate.py
 
 ## 📋 Roadmap
 
+### Livré
+
 - [x] Pipeline RAG fonctionnel (LangChain + DuckDB)
 - [x] Évaluation RAGAS (answer_similarity)
 - [x] API FastAPI (`/health`, `/query`)
@@ -125,56 +140,13 @@ python scripts/evaluate.py
 - [x] Containerisation Docker
 - [x] Documentation OpenAPI enrichie
 - [x] Sécurisation — authentification par clé API
-- [ ] Rate limiting
+
+### 📋 Post-polish (non planifié)
+
+- [ ] Rate limiting (`slowapi`, 20 requêtes/minute envisagées)
 - [ ] Logging structuré + métriques Prometheus
 - [ ] Pipeline CI/CD
 - [ ] Intégration MCP (Model Context Protocol)
-
----
-
-## Perspectives MCP
-
-### Model Context Protocol (MCP)
-
-Le pipeline RAG actuel est conçu pour évoluer vers une architecture **MCP (Model Context Protocol)**.
-
-MCP est un protocole ouvert (Anthropic, 2024) qui standardise la communication
-entre un LLM et ses sources de données ou outils externes. Il définit deux rôles :
-
-| Rôle | Description | Dans ce projet |
-|---|---|---|
-| **MCP Server** | Expose des ressources ou outils interrogeables par un LLM | L'API FastAPI `/query` |
-| **MCP Client** | Le LLM qui consomme les ressources exposées | Agent LangGraph |
-
-**Évolution cible :**
-
-```
-[LLM Agent]
-    │
-    │  MCP Protocol
-    ▼
-[MCP Server — FastAPI]
-    │
-    ├── /query  → DuckDB+VSS (recherche sémantique)
-    ├── /docs   → corpus PDF (accès aux sources)
-    └── /health → monitoring
-```
-
-Cette architecture permet :
-- Un accès **standardisé et sécurisé** aux connaissances du corpus
-- Une **découplabilité** totale entre le LLM et les sources de données
-- Une **extensibilité** vers d'autres knowledge connectors (bases SQL, APIs métier)
-
-**Roadmap technique :**
-
-| Composant | Statut | Description |
-|---|---|---|
-| API FastAPI `/query` | ✅ Livré | Base du MCP Server |
-| Exposition MCP Server | 🚧 À venir | Wrapper MCP sur FastAPI via `mcp` SDK |
-| Agent LangGraph | 🚧 À venir | MCP Client avec mémoire et multi-turn |
-| Évaluation LLM complète | ⚠️ Partiel | Flan-T5 actif (answer_similarity) — Ollama requis pour métriques complètes |
-| Conteneurisation Docker | 🚧 À venir | Image unifiée API + modèles |
-| Tests unitaires | 🚧 À venir | Couverture pipeline RAG et endpoints API |
 
 ---
 
@@ -222,10 +194,9 @@ rag-pipeline/
 │   ├── main.py                       # Application FastAPI
 │   └── models.py                     # Schémas Pydantic
 ├── constraints-3.11.txt              # Contraintes pip pour Airflow
-├── docker-compose.yaml               # 🚧 À venir
+├── docker-compose.yaml               # ✅ Fonctionnel
 ├── .env.example                      # Variables d'environnement (modèle)
 └── .gitignore
-├── docker-compose.yaml               # ✅ Fonctionnel
 ```
 
 ---
@@ -382,8 +353,6 @@ mlflow ui --backend-store-uri sqlite:///D:/projets/rag-pipeline/mlflow_data/mlfl
 # macOS / Linux
 source .venv-mlflow/bin/activate
 mlflow ui --backend-store-uri sqlite:///$(pwd)/mlflow_data/mlflow.db --port 5000
-# UI → http://localhost:5000
-# Arrêt : Ctrl+C
 ```
 
 ### dbt
@@ -402,7 +371,6 @@ source .venv-dbt/bin/activate
 cd dbt_project/mon_rag_dbt
 dbt run
 dbt docs serve --port 8081
-# UI → http://localhost:8081
 ```
 
 ### Airflow
@@ -420,7 +388,6 @@ airflow webserver --port 8080
 source .venv-airflow/bin/activate
 export AIRFLOW_HOME=$(pwd)/airflow
 airflow webserver --port 8080
-# UI → http://localhost:8080
 ```
 
 ### API FastAPI
@@ -435,8 +402,6 @@ uvicorn api.main:app --reload --port 8000
 # macOS / Linux
 source .venv-api/bin/activate
 uvicorn api.main:app --reload --port 8000
-# Swagger UI → http://localhost:8000/docs
-# Arrêt : Ctrl+C
 ```
 
 ### Évaluation RAGAS
@@ -451,7 +416,6 @@ python scripts/evaluate.py
 # macOS / Linux
 source .venv-ragas/bin/activate
 python scripts/evaluate.py
-# Résultats → MLflow UI http://localhost:5000
 ```
 
 ---
@@ -469,12 +433,24 @@ python scripts/evaluate.py
 
 ---
 
-## 🧪 Tests
+## Lacunes connues
 
-### Lancer les tests
+Ce projet est un portfolio showcase. Les points suivants sont des lacunes identifiées et assumées :
+
+- **DAG Airflow** — `dags/rag_pipeline_dag.py` est WSL2 uniquement et contient des imports cassés. Pas de correctif prévu.
+- **Métriques RAGAS bloquées** — `context_precision` et `context_recall` nécessitent un LLM plus rapide qu'Ollama (Flan-T5 sur CPU timeout).
+- **6 environnements virtuels** — Conséquence assumée de conflits de dépendances (pydantic v1/v2, sqlalchemy, protobuf). Pas de venv unique possible.
+- **data/ et models/ dans .gitignore** — Un clone frais n'aura ni PDFs de test, ni base DuckDB, ni modèle. Voir Quick start pour générer les fixtures.
+- **Pas de CI/CD** — Projet local-first sans pipeline d'intégration continue.
+- **Deux scripts d'évaluation** — `scripts/evaluate.py` (legacy Flan-T5) et `scripts/evaluate_local.py` (version offline plus propre). La consolidation est en attente.
+
+---
+
+## 🧪 Tests
 
 ```bash
 pytest tests/ -v
+```
 
 La suite de tests couvre **33 tests unitaires** répartis en 4 modules.
 
@@ -489,6 +465,7 @@ La suite de tests couvre **33 tests unitaires** répartis en 4 modules.
 | Total | 33 | Pipeline complet RAG → API
 
 ### Résultat attendu
+```
 collected 33 items
 
 tests/test_chunking.py ....                          [ 12%]
@@ -497,11 +474,13 @@ tests/test_similarity.py .....                       [ 39%]
 tests/test_api.py ....................                [100%]
 
 ====================== 33 passed in X.XXs ======================
+```
 
 ---
 
 ## Résultats
 
+Les métriques ci-dessous proviennent d'un petit corpus de test (2 documents, 10 chunks).
 
 | Métrique | Valeur |
 |---|---|
@@ -600,6 +579,54 @@ et Flan-T5-large pour la génération de réponses. Les métriques
 
 ---
 
+## 📜 Vision archivée — MCP
+
+> **Note :** Cette section décrit une direction explorée mais archivée. Elle n'est pas activement développée.
+
+### Model Context Protocol (MCP)
+
+Le pipeline RAG actuel est conçu pour évoluer vers une architecture **MCP (Model Context Protocol)**.
+
+MCP est un protocole ouvert (Anthropic, 2024) qui standardise la communication
+entre un LLM et ses sources de données ou outils externes. Il définit deux rôles :
+
+| Rôle | Description | Dans ce projet |
+|---|---|---|
+| **MCP Server** | Expose des ressources ou outils interrogeables par un LLM | L'API FastAPI `/query` |
+| **MCP Client** | Le LLM qui consomme les ressources exposées | Agent LangGraph |
+
+**Architecture cible (archivée) :**
+
+```
+[LLM Agent]
+    │
+    │  MCP Protocol
+    ▼
+[MCP Server — FastAPI]
+    │
+    ├── /query  → DuckDB+VSS (recherche sémantique)
+    ├── /docs   → corpus PDF (accès aux sources)
+    └── /health → monitoring
+```
+
+Cette architecture permet :
+- Un accès **standardisé et sécurisé** aux connaissances du corpus
+- Une **découplabilité** totale entre le LLM et les sources de données
+- Une **extensibilité** vers d'autres knowledge connectors (bases SQL, APIs métier)
+
+**Roadmap technique (archivée) :**
+
+| Composant | Statut | Description |
+|---|---|---|
+| API FastAPI `/query` | ✅ Livré | Base du MCP Server |
+| Exposition MCP Server | 📋 Archivé | Wrapper MCP sur FastAPI via `mcp` SDK |
+| Agent LangGraph | 📋 Archivé | MCP Client avec mémoire et multi-turn |
+| Évaluation LLM complète | ⚠️ Partiel | Flan-T5 actif (answer_similarity) — Ollama requis pour métriques complètes |
+| Conteneurisation Docker | 📋 Archivé | Image unifiée API + modèles |
+| Tests unitaires | ✅ Livré | Couverture pipeline RAG et endpoints API |
+
+---
+
 ## 🔒 Sécurité
 
 L'endpoint `/query` est protégé par une authentification par clé API
@@ -644,9 +671,9 @@ curl -X POST http://localhost:8000/query \
 | Évaluation RAGAS | ✅ Fonctionnel (answer_similarity) — métriques LLM en attente |
 | Airflow (orchestration) | ⚠️ WSL2 requis |
 | API FastAPI | ✅ Fonctionnel |
-| MCP Server | 🚧 À venir |
-| Agent LangGraph | 🚧 À venir |
 | Tests unitaires | ✅ Fonctionnel |
 | Docker | ✅ Fonctionnel (API uniquement) |
 | Authentification API (clé X-API-Key) | ✅ Fonctionnel |
-
+| Rate limiting | 📋 Futur |
+| Logging structuré + Prometheus | 📋 Futur |
+| Pipeline CI/CD | 📋 Futur |
