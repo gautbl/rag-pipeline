@@ -11,7 +11,7 @@ import uuid
 
 import numpy as np
 import duckdb
-from duckdb import IOException as DuckDBIOException, CatalogException as DuckDBCatalogException
+from duckdb import (IOException as _DuckDBIOError, CatalogException as _DuckDBSchemaError)
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException, Security, Depends, status, Request
 from fastapi.security.api_key import APIKeyHeader
@@ -97,7 +97,7 @@ def search_chunks(question: str, top_k: int) -> list[ChunkResult]:
 
     try:
         conn = duckdb.connect(DUCKDB_PATH, read_only=True)
-    except DuckDBIOException as e:
+    except _DuckDBIOError as e:
         raise RuntimeError(f"Base de données inaccessible : {e}") from e
 
     try:
@@ -111,10 +111,8 @@ def search_chunks(question: str, top_k: int) -> list[ChunkResult]:
             """,
             [query_vector.tolist(), top_k]
         ).fetchall()
-    except DuckDBCatalogException as e:
-        raise RuntimeError(f"Schéma de base invalide (table manquante ?) : {e}") from e
-    except DuckDBIOException as e:
-        raise RuntimeError(f"Erreur d'entrée/sortie DuckDB : {e}") from e
+    except (_DuckDBSchemaError, _DuckDBIOError) as e:
+        raise RuntimeError(f"Erreur d'accès à la base DuckDB : {e}") from e
     finally:
         conn.close()
 
@@ -142,12 +140,12 @@ def health_check() -> HealthResponse:
         conn = duckdb.connect(DUCKDB_PATH, read_only=True)
         try:
             count = int(conn.execute("SELECT COUNT(*) FROM chunks").fetchone()[0])
-        except DuckDBCatalogException:
+        except _DuckDBSchemaError:
             count = 0
         finally:
             conn.close()
         return HealthResponse(status="ok", db_reachable=True, chunk_count=count)
-    except DuckDBIOException as e:
+    except _DuckDBIOError as e:
         return HealthResponse(status=f"degraded: {e}", db_reachable=False, chunk_count=0)
 
 
