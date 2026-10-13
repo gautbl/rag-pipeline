@@ -6,7 +6,6 @@
 .venv-api/
 .venv-ragas/
 
-
 # Python
 __pycache__/
 *.pyc
@@ -19,9 +18,7 @@ __pycache__/
 
 # Données et bases locales
 data/
-*.pdf
 *.duckdb
-chroma_db/
 
 # Artefacts dbt
 dbt_project/mon_rag_dbt/target/
@@ -29,7 +26,6 @@ dbt_project/mon_rag_dbt/target/
 # MLflow
 mlflow_data/
 mlartifacts/
-
 
 # Airflow
 airflow/airflow.db
@@ -40,14 +36,7 @@ airflow/webserver_config.py
 *.log
 .DS_Store
 .Rhistory
-
-# Chroma
-chroma_store/
-
-# PDFs (données personnelles)
-*.pdf
-data/
-# Dossier de logs
 logs/
 
+# Modèles (téléchargement local)
 models/

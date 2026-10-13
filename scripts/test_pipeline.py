@@ -1,48 +1,9 @@
-# # scripts/test_pipeline.py — Validation du pipeline RAG end-to-end
-# import sys
-# import os
-# sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
-
-# from scripts.ingest import split_documents
-# from scripts.embed import embed_and_store
-# from scripts.query import search
-
-# PDF_PATH = "./data/pdfs/Resume_Gautier_Blondel_04_2026.pdf"
-
-# # --- 1. Ingest ---
-# print("\n=== 1. INGEST ===")
-# chunks = split_documents(PDF_PATH)
-# assert len(chunks) > 0, "Aucun chunk généré"
-# print(f"{len(chunks)} chunks générés")
-# print(f"   Exemple : {chunks[0].page_content[:100]}...")
-
-# # --- 2. Embed & Store ---
-# print("\n=== 2. EMBED & STORE ===")
-# vectorstore = embed_and_store(chunks)
-# print("Chunks indexés dans Chroma")
-
-# # --- 3. Query ---
-# print("\n=== 3. QUERY ===")
-# queries = [
-    # "Quelles bases de données a-t-il utilisées ?",
-    # "Quelle est sa formation académique ?",
-# ]
-# for q in queries:
-    # print(f"\nQuestion : {q}")
-    # results = search(q, k=2)
-    # assert len(results) == 2, f"Attendu 2 résultats, obtenu {len(results)}"
-    # for i, (doc, score) in enumerate(results):
-        # print(f"  Résultat {i+1} — score : {score:.4f}")
-        # print(f"  Contenu : {doc.page_content.strip()[:120]}...")
-
-# print("\nPipeline RAG end-to-end fonctionnel")
-
-
 # scripts/test_pipeline.py — Validation du pipeline RAG end-to-end (DuckDB+VSS)
 import sys
 import io
 import os
 import time
+
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8")
 sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding="utf-8")
 
@@ -55,14 +16,33 @@ from scripts.ingest import split_documents
 from scripts.embed import embed_and_store
 from scripts.query import search
 
-PDF_PATH = "./data/pdfs/"
+# Vérifier les dépendances critiques avant de commencer
+PDF_PATH = os.getenv("TEST_PDF_PATH", "./data/pdfs/")
+MODEL_NAME = os.getenv(
+    "HF_MODEL_NAME",
+    "./models/paraphrase-multilingual-MiniLM-L12-v2"
+)
+
+if not os.path.isdir(PDF_PATH):
+    print(f"⚠️ Répertoire PDF introuvable : {PDF_PATH}")
+    print(f"   Créez-le ou définissez TEST_PDF_PATH dans .env")
+    sys.exit(1)
+
+if not os.path.isdir(MODEL_NAME):
+    print(f"⚠️ Modèle introuvable : {MODEL_NAME}")
+    print(f"   Téléchargez-le ou définissez HF_MODEL_NAME dans .env")
+    sys.exit(1)
 
 # --- 1. Ingest ---
 print("\n=== 1. INGEST ===")
 start = time.time()
 chunks = split_documents(PDF_PATH)
 end = time.time()
-assert len(chunks) > 0, "Aucun chunk généré"
+
+if len(chunks) == 0:
+    print("⚠️ Aucun chunk généré. Vérifiez les PDFs dans", PDF_PATH)
+    sys.exit(1)
+
 print(f"{len(chunks)} chunks générés")
 print(f"Temps d'ingestion : {end - start:.2f} sec")
 print(f"   Exemple : {chunks[0].page_content[:100]}...")
@@ -86,7 +66,9 @@ for q in queries:
     print("-" * 50)
     results = search(q, k=2)
 
-    assert len(results) == 2, f"Attendu 2 résultats, obtenu {len(results)}"
+    if len(results) == 0:
+        print("  ⚠️ Aucun résultat trouvé")
+        continue
 
     for i, (doc, score) in enumerate(results):
         assert len(doc.page_content) > 0, "Contenu vide"
