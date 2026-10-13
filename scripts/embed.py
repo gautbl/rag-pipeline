@@ -23,6 +23,7 @@ def embed_and_store(chunks):
     Raises:
         RuntimeError: Si le modèle d'embeddings ne peut pas être chargé.
         duckdb.IOException: Si la base DuckDB est inaccessible ou corrompue.
+        Exception: Relaie toute autre erreur DuckDB (écriture, contrainte, etc.).
     """
     print("Chargement du modèle d'embeddings...")
     try:

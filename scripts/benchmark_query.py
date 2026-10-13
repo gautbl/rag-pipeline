@@ -57,24 +57,25 @@ except Exception as e:
 times = []
 conn = duckdb.connect(DUCKDB_PATH, read_only=True)
 
-for q in test_queries:
-    query_vec = model.encode(q, normalize_embeddings=True).astype(np.float32).tolist()
+try:
+    for q in test_queries:
+        query_vec = model.encode(q, normalize_embeddings=True).astype(np.float32).tolist()
 
-    start = time.perf_counter()
-    conn.execute(
-        """
-        SELECT content, array_cosine_similarity(embedding, $1::FLOAT[384]) AS score
-        FROM chunks
-        ORDER BY score DESC
-        LIMIT 3
-        """,
-        [query_vec]
-    ).fetchall()
-    end = time.perf_counter()
+        start = time.perf_counter()
+        conn.execute(
+            """
+            SELECT content, array_cosine_similarity(embedding, $1::FLOAT[384]) AS score
+            FROM chunks
+            ORDER BY score DESC
+            LIMIT 3
+            """,
+            [query_vec]
+        ).fetchall()
+        end = time.perf_counter()
 
-    times.append((end - start) * 1000)  # en millisecondes
-
-conn.close()
+        times.append((end - start) * 1000)  # en millisecondes
+finally:
+    conn.close()
 
 print(f"Temps de requête moyen : {np.mean(times):.2f} ms")
 print(f"Min : {np.min(times):.2f} ms | Max : {np.max(times):.2f} ms")
