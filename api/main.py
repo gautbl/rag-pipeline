@@ -116,8 +116,10 @@ def search_chunks(question: str, top_k: int) -> list[ChunkResult]:
     finally:
         conn.close()
 
+    # Clamp score à [0.0, 1.0] car cosinus normalisé peut être négatif
+    # (p. ex. -1e-2) pour des requêtes sans rapport avec le corpus.
     return [
-        ChunkResult(content=row[0], source=row[1], score=round(float(row[2]), 4))
+        ChunkResult(content=row[0], source=row[1], score=round(max(0.0, float(row[2])), 4))
         for row in rows
     ]
 
