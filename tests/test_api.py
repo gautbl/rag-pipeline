@@ -21,6 +21,7 @@ TEST_MODEL_PATH = "./models/paraphrase-multilingual-MiniLM-L12-v2"
 
 os.environ["DUCKDB_PATH"] = TEST_DB_PATH
 os.environ["MODEL_PATH"]  = TEST_MODEL_PATH
+os.environ["API_KEY"]     = "test-api-key-2026"
 
 # ── Import app APRÈS injection des variables d'environnement ─────
 from fastapi.testclient import TestClient
@@ -31,6 +32,14 @@ import api.main as main_module
 # ════════════════════════════════════════════════════════════════
 # HELPERS
 # ════════════════════════════════════════════════════════════════
+
+API_KEY_VALUE = "test-api-key-2026"
+
+
+def _query(client, json_data):
+    """POST /query avec l'en-tête X-API-Key."""
+    return client.post("/query", json=json_data, headers={"X-API-Key": API_KEY_VALUE})
+
 
 def _create_test_db(db_path: str, with_data: bool = True) -> None:
     """
@@ -176,12 +185,12 @@ class TestQueryEndpoint:
 
     def test_query_returns_200(self, client):
         """Une question valide doit retourner HTTP 200."""
-        response = client.post("/query", json={"question": "bail social", "top_k": 2})
+        response = _query(client, {"question": "bail social", "top_k": 2})
         assert response.status_code == 200
 
     def test_query_response_structure(self, client):
         """La réponse doit contenir question, top_k et results."""
-        data = client.post("/query", json={"question": "charges locatives", "top_k": 2}).json()
+        data = _query(client, {"question": "charges locatives", "top_k": 2}).json()
         assert "question" in data
         assert "top_k"    in data
         assert "results"  in data
@@ -189,12 +198,12 @@ class TestQueryEndpoint:
     def test_query_results_count_respects_top_k(self, client):
         """Le nombre de résultats retournés doit être <= top_k."""
         top_k = 2
-        data  = client.post("/query", json={"question": "loyer", "top_k": top_k}).json()
+        data  = _query(client, {"question": "loyer", "top_k": top_k}).json()
         assert len(data["results"]) <= top_k
 
     def test_query_result_fields(self, client):
         """Chaque chunk retourné doit avoir content, source et score."""
-        data  = client.post("/query", json={"question": "bail social", "top_k": 1}).json()
+        data  = _query(client, {"question": "bail social", "top_k": 1}).json()
         chunk = data["results"][0]
         assert "content" in chunk
         assert "source"  in chunk
@@ -202,7 +211,7 @@ class TestQueryEndpoint:
 
     def test_query_scores_are_ordered_desc(self, client):
         """Les scores doivent être triés par ordre décroissant (invariant métier)."""
-        data   = client.post("/query", json={"question": "loyer révision", "top_k": 3}).json()
+        data   = _query(client, {"question": "loyer révision", "top_k": 3}).json()
         scores = [r["score"] for r in data["results"]]
         assert scores == sorted(scores, reverse=True)
 
@@ -211,26 +220,26 @@ class TestQueryEndpoint:
         Avec normalize_embeddings=True (main.py), le score cosinus
         est dans [0.0, 1.0] — on resserre par rapport à [-1, 1].
         """
-        data = client.post("/query", json={"question": "charges", "top_k": 3}).json()
+        data = _query(client, {"question": "charges", "top_k": 3}).json()
         for result in data["results"]:
             assert 0.0 <= result["score"] <= 1.0
 
     def test_query_echoes_question(self, client):
         """La réponse doit renvoyer la question posée telle quelle."""
         question = "indice de référence des loyers"
-        data     = client.post("/query", json={"question": question, "top_k": 1}).json()
+        data     = _query(client, {"question": question, "top_k": 1}).json()
         assert data["question"] == question
 
     def test_query_echoes_top_k(self, client):
         """La réponse doit renvoyer le top_k demandé tel quel."""
-        data = client.post("/query", json={"question": "bail social", "top_k": 2}).json()
+        data = _query(client, {"question": "bail social", "top_k": 2}).json()
         assert data["top_k"] == 2
 
     # ── Cas limites ──────────────────────────────────────────────
 
     def test_query_top_k_1_returns_single_result(self, client):
         """top_k=1 doit retourner exactement 1 résultat."""
-        data = client.post("/query", json={"question": "bail", "top_k": 1}).json()
+        data = _query(client, {"question": "bail", "top_k": 1}).json()
         assert len(data["results"]) == 1
 
     def test_query_top_k_gt_corpus_returns_all(self, client):
@@ -238,19 +247,19 @@ class TestQueryEndpoint:
         top_k > nombre de chunks en base (3) doit retourner
         tous les chunks disponibles, pas lever d'erreur.
         """
-        data = client.post("/query", json={"question": "bail", "top_k": 10}).json()
+        data = _query(client, {"question": "bail", "top_k": 10}).json()
         assert len(data["results"]) == 3  # corpus de test = 3 chunks
 
     def test_query_empty_db_returns_404(self, client_empty_db):
         """Sans chunks en base, l'API doit retourner 404."""
-        response = client_empty_db.post("/query", json={"question": "bail social", "top_k": 2})
+        response = _query(client_empty_db, {"question": "bail social", "top_k": 2})
         assert response.status_code == 404
 
     # ── Validation Pydantic ──────────────────────────────────────
 
     def test_query_missing_question_returns_422(self, client):
         """Payload sans champ 'question' → erreur de validation 422."""
-        response = client.post("/query", json={"top_k": 2})
+        response = _query(client, {"top_k": 2})
         assert response.status_code == 422
 
     def test_query_missing_top_k_uses_default(self, client):
@@ -258,13 +267,13 @@ class TestQueryEndpoint:
         Sans top_k, FastAPI utilise default=3 (models.py).
         La réponse doit être 200 avec top_k=3.
         """
-        response = client.post("/query", json={"question": "bail social"})
+        response = _query(client, {"question": "bail social"})
         assert response.status_code == 200
         assert response.json()["top_k"] == 3  # default=3 dans QueryRequest
 
     def test_query_empty_payload_returns_422(self, client):
         """Payload vide → erreur de validation 422."""
-        response = client.post("/query", json={})
+        response = _query(client, {})
         assert response.status_code == 422
 
     def test_query_question_too_short_returns_422(self, client):
@@ -272,7 +281,7 @@ class TestQueryEndpoint:
         question < 3 caractères → violation de min_length=3 (models.py)
         → erreur de validation 422.
         """
-        response = client.post("/query", json={"question": "ab", "top_k": 2})
+        response = _query(client, {"question": "ab", "top_k": 2})
         assert response.status_code == 422
 
     def test_query_top_k_zero_returns_422(self, client):
@@ -280,7 +289,7 @@ class TestQueryEndpoint:
         top_k=0 → violation de ge=1 (models.py)
         → erreur de validation 422.
         """
-        response = client.post("/query", json={"question": "bail social", "top_k": 0})
+        response = _query(client, {"question": "bail social", "top_k": 0})
         assert response.status_code == 422
 
     def test_query_top_k_above_max_returns_422(self, client):
@@ -288,5 +297,5 @@ class TestQueryEndpoint:
         top_k=11 → violation de le=10 (models.py)
         → erreur de validation 422.
         """
-        response = client.post("/query", json={"question": "bail social", "top_k": 11})
+        response = _query(client, {"question": "bail social", "top_k": 11})
         assert response.status_code == 422

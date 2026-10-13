@@ -6,14 +6,21 @@ Endpoints :
 """
 
 import os
+import logging
+import uuid
+
 import numpy as np
 import duckdb
+from duckdb import IOException as DuckDBIOException, CatalogException as DuckDBCatalogException
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, HTTPException, Security, Depends, status
+from fastapi import FastAPI, HTTPException, Security, Depends, status, Request
 from fastapi.security.api_key import APIKeyHeader
 from sentence_transformers import SentenceTransformer
 
 from api.models import QueryRequest, QueryResponse, ChunkResult, HealthResponse
+
+
+logger = logging.getLogger("rag-api")
 
 # ── Configuration ────────────────────────────────────────────────
 DUCKDB_PATH = os.getenv("DUCKDB_PATH", "./data/rag.duckdb")
@@ -32,6 +39,8 @@ async def lifespan(app: FastAPI):
     print("⏳ Chargement du modèle d'embeddings...")
     app_state["model"] = SentenceTransformer(MODEL_PATH)
     print(f"✅ Modèle chargé : {MODEL_PATH}")
+    if not API_KEY:
+        logger.warning("API_KEY non définie — l'authentification /query est désactivée.")
     yield
     # Nettoyage à l'arrêt
     app_state.clear()
@@ -72,8 +81,8 @@ def verify_api_key(key: str = Security(api_key_header)) -> None:
     """Vérifie la présence et la validité de la clé API dans l'en-tête X-API-Key."""
     if not API_KEY:
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Clé API non configurée côté serveur.",
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Clé API non configurée côté serveur. Définissez la variable d'environnement API_KEY.",
         )
     if key != API_KEY:
         raise HTTPException(
@@ -86,7 +95,11 @@ def search_chunks(question: str, top_k: int) -> list[ChunkResult]:
     """Recherche les top-K chunks par similarité cosinus dans DuckDB."""
     query_vector = get_embedding(question)
 
-    conn = duckdb.connect(DUCKDB_PATH, read_only=True)
+    try:
+        conn = duckdb.connect(DUCKDB_PATH, read_only=True)
+    except DuckDBIOException as e:
+        raise RuntimeError(f"Base de données inaccessible : {e}") from e
+
     try:
         rows = conn.execute(
             """
@@ -98,6 +111,10 @@ def search_chunks(question: str, top_k: int) -> list[ChunkResult]:
             """,
             [query_vector.tolist(), top_k]
         ).fetchall()
+    except DuckDBCatalogException as e:
+        raise RuntimeError(f"Schéma de base invalide (table manquante ?) : {e}") from e
+    except DuckDBIOException as e:
+        raise RuntimeError(f"Erreur d'entrée/sortie DuckDB : {e}") from e
     finally:
         conn.close()
 
@@ -123,11 +140,25 @@ def health_check() -> HealthResponse:
     """Vérifie que l'API est opérationnelle et que la base DuckDB est accessible."""
     try:
         conn = duckdb.connect(DUCKDB_PATH, read_only=True)
-        count = int(conn.execute("SELECT COUNT(*) FROM chunks").fetchone()[0])
-        conn.close()
+        try:
+            count = int(conn.execute("SELECT COUNT(*) FROM chunks").fetchone()[0])
+        except DuckDBCatalogException:
+            count = 0
+        finally:
+            conn.close()
         return HealthResponse(status="ok", db_reachable=True, chunk_count=count)
-    except Exception as e:
+    except DuckDBIOException as e:
         return HealthResponse(status=f"degraded: {e}", db_reachable=False, chunk_count=0)
+
+
+@app.middleware("http")
+async def add_request_id(request: Request, call_next):
+    """Ajoute un identifiant unique à chaque requête pour le tracing."""
+    request_id = uuid.uuid4().hex[:8]
+    logger.info("request_id=%s method=%s path=%s", request_id, request.method, request.url.path)
+    response = await call_next(request)
+    response.headers["X-Request-ID"] = request_id
+    return response
 
 
 @app.post(
@@ -155,8 +186,8 @@ def query(request: QueryRequest) -> QueryResponse:
     """
     try:
         results = search_chunks(request.question, request.top_k)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    except RuntimeError as e:
+        raise HTTPException(status_code=503, detail=str(e))
 
     if not results:
         raise HTTPException(

@@ -10,6 +10,7 @@ class QueryRequest(BaseModel):
     question: str = Field(
         ...,
         min_length=3,
+        max_length=5000,
         description="Question en langage naturel à soumettre au pipeline RAG.",
         examples=["Quelle est la formation de Gautier Blondel ?"]
     )
