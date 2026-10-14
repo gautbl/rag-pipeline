@@ -441,7 +441,7 @@ Ce projet est un portfolio showcase. Les points suivants sont des lacunes identi
 - **6 environnements virtuels** — Conséquence assumée de conflits de dépendances (pydantic v1/v2, sqlalchemy, protobuf). Pas de venv unique possible.
 - **data/ et models/ dans .gitignore** — Un clone frais n'aura ni PDFs de test, ni base DuckDB, ni modèle. Voir Quick start pour générer les fixtures.
 - **CI/CD désactivé** — Un pipeline GitHub Actions existe (`.github/workflows/ci.yml`) mais est désactivé. Voir section [CI/CD](#cicd).
-- **Deux scripts d'évaluation** — `scripts/evaluate.py` (legacy Flan-T5) et `scripts/evaluate_local.py` (version offline plus propre). La consolidation est en attente.
+- **Script d'évaluation unique** — `scripts/evaluate.py` est le script canonique, mode offline avec `answer_similarity`. L'ancienne variante Flan-T5 a été archivée sous `scripts/evaluate.py.legacy`.
 
 ---
 
