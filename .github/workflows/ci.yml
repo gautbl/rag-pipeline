@@ -1,10 +1,9 @@
 name: CI/CD
 
-on:
-  push:
-    branches: [main]
-  pull_request:
-    branches: [main]
+# Désactivé — pas de CI/CD pour l'instant (projet portfolio local-first)
+# Voir README.md section "CI/CD" pour les détails.
+# Réactiver en supprimant le "[]" ci-dessous et en décommentant les triggers.
+on: []
 
 env:
   REGISTRY: ghcr.io

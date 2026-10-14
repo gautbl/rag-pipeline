@@ -145,7 +145,6 @@ python scripts/evaluate.py
 
 - [ ] Rate limiting (`slowapi`, 20 requêtes/minute envisagées)
 - [ ] Logging structuré + métriques Prometheus
-- [ ] Pipeline CI/CD
 - [ ] Intégration MCP (Model Context Protocol)
 
 ---
@@ -441,8 +440,46 @@ Ce projet est un portfolio showcase. Les points suivants sont des lacunes identi
 - **Métriques RAGAS bloquées** — `context_precision` et `context_recall` nécessitent un LLM plus rapide qu'Ollama (Flan-T5 sur CPU timeout).
 - **6 environnements virtuels** — Conséquence assumée de conflits de dépendances (pydantic v1/v2, sqlalchemy, protobuf). Pas de venv unique possible.
 - **data/ et models/ dans .gitignore** — Un clone frais n'aura ni PDFs de test, ni base DuckDB, ni modèle. Voir Quick start pour générer les fixtures.
-- **Pas de CI/CD** — Projet local-first sans pipeline d'intégration continue.
+- **CI/CD désactivé** — Un pipeline GitHub Actions existe (`.github/workflows/ci.yml`) mais est désactivé. Voir section [CI/CD](#cicd).
 - **Deux scripts d'évaluation** — `scripts/evaluate.py` (legacy Flan-T5) et `scripts/evaluate_local.py` (version offline plus propre). La consolidation est en attente.
+
+---
+
+## CI/CD
+
+Un pipeline GitHub Actions est défini dans `.github/workflows/ci.yml` mais **désactivé**
+— ce projet est local-first et ne nécessite pas d'intégration continue à distance.
+
+### Comportement (une fois réactivé)
+
+1. **Déclencheurs** : push sur `main`, pull request vers `main`
+2. **Job `test`** : installe Python 3.11, les dépendances (`requirements-rag.txt` +
+   `requirements-api.txt`), injecte `API_KEY` via secret GitHub, et lance
+   `pytest tests/ -v`
+3. **Job `build-and-push`** : construit et pousse l'image Docker sur GitHub
+   Container Registry (`ghcr.io`), uniquement si les tests passent
+4. **Job `deploy`** : placeholder — aucun serveur cible configuré
+
+### Points d'attention avant réactivation
+
+- **Modèle HuggingFace** — non inclus dans le repo (`.gitignore`). Le job `test`
+  le télécharge depuis le HF Hub (~117 MB, ~2 min).
+- **Secret `API_KEY`** — à configurer dans les secrets GitHub (`Settings →
+  Secrets and variables → Actions`, créer `API_KEY`).
+- **Tests sur PDFs de test** — les fixtures dans `tests/fixtures/` sont trackées
+  et seront disponibles.
+
+### Réactiver
+
+Dans `.github/workflows/ci.yml`, remplacer `on: []` par :
+
+```yaml
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+```
 
 ---
 
