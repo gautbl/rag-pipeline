@@ -9,10 +9,9 @@ This is a **portfolio showcase** — clarity and correctness matter more than ne
 ## How agents should orient themselves
 
 - **Start here.** Read this file first.
-- **Read the issue tracker** at `.scratch/polish-and-ship/map.md` for the current effort, open tickets, and decisions.
-- **Check `.scratch/polish-and-ship/issues/`** for individual tickets. The map describes priorities, blocked items, and fog patches.
-- **Domain docs** are in `docs/agents/domain.md` for shared terminology.
-- **The source code is the source of truth** for implementation details.
+- **Source code is the source of truth** for implementation details.
+- **Domain glossary** at `docs/agents/domain.md`.
+- **Wayfinding map** at `.scratch/<effort>/map.md` — check this when given a task, before starting work.
 
 ## Known constraints
 
@@ -27,12 +26,6 @@ This is a **portfolio showcase** — clarity and correctness matter more than ne
 - **Windows-first** — PowerShell activation, paths use backslashes in README
 - **WSL2 required for Airflow** — the DAG (`dags/rag_pipeline_dag.py`) is WSL2-only
 - **DuckDB+VSS** is the vector store (not Chroma — old Chroma code is commented out in places)
-- **No CI/CD** — this is a local-first portfolio project
-- **No MCP integration** — MCP is out of scope for this iteration
-
-## Wayfinding
-
-If an effort has active wayfinding, the map file is at `.scratch/<effort>/map.md`. The current effort is `polish-and-ship`.
 
 ## Issue tracker
 
